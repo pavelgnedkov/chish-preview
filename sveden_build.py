@@ -122,7 +122,7 @@ def c_common():
         f'<tr><td>Адрес места нахождения образовательной организации</td><td itemprop="address">{ADDR_LENINA}</td></tr>',
         '<tr><td>Филиалы образовательной организации</td><td>нет</td></tr>',
         '<tr><td>Представительства образовательной организации</td><td>нет</td></tr>',
-        '<tr><td>Режим, график работы</td><td itemprop="workTime">понедельник — пятница с 8:00 до 17:00; суббота с 8:00 до 14:00; воскресенье — выходной</td></tr>',
+        '<tr><td>Режим, график работы</td><td itemprop="workTime">понедельник — пятница с 8:00 до 17:00; суббота с 8:00 до 14:00</td></tr>',
         f'<tr><td>Контактные телефоны</td><td itemprop="telephone">{PHONE}</td></tr>',
         f'<tr><td>Адреса электронной почты</td><td itemprop="email">{EMAIL}</td></tr>',
     ]
@@ -340,15 +340,23 @@ def c_managers():
             + (f'<div class="sv-cards">{cards}</div>' if cards else ""))
 
 
+DISC = {  # «учитель математики» -> «математика»
+    "математики": "математика", "французского языка": "французский язык", "английского языка": "английский язык",
+    "физической культуры и ОБЖ": "физическая культура, ОБЖ", "русского языка и литературы": "русский язык, литература",
+    "информатики и ИКТ": "информатика", "информатики": "информатика", "географии и биологии": "география, биология",
+    "истории и обществознания": "история, обществознание", "физики": "физика", "химии": "химия", "биологии": "биология",
+    "литературы": "литература", "музыки": "музыка", "изобразительного искусства и технологии": "изобразительное искусство, труд (технология)",
+    "начальных классов": "предметы начального общего образования",
+}
+
+
 def c_employees():
     data = json.load(open(os.path.join(REPO, "data", "teachers.json"), encoding="utf-8"))
     rows = []
     for t in data:
         post = t.get("post") or todo("должность")
         m = re.match(r"учитель\s+(.+?)(?:,|$)", t.get("post", ""))
-        disc = m.group(1) if m else ("предметы начального общего образования" if "начальных" in t.get("post", "") else "—")
-        if disc.startswith("начальных классов"):
-            disc = "предметы начального общего образования"
+        disc = DISC.get(m.group(1).strip(), m.group(1)) if m else "—"
         n, w = years(t.get("exp"))
         edu = t.get("edu", "")
         lvl = ("высшее" if edu.lower() == "высшее" else f"высшее, {edu}") + "; " + todo("специальность и квалификация")
@@ -560,6 +568,7 @@ CONTENT = {"common": c_common, "struct": c_struct, "document": c_document, "educ
            "vacant": c_vacant, "grants": c_grants, "inter": c_inter, "catering": c_catering}
 
 CSS = """
+.article-wrapper>*,.article-content,.article-content__text{min-width:0;max-width:100%}
 .sv-nav{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 26px;padding:12px;border-radius:14px;background:#f4f6fa}
 .sv-nav a{font-size:14px;line-height:1.3;padding:6px 10px;border-radius:8px;background:#fff;color:#1d3557!important;text-decoration:none!important;border:1px solid #dfe5ee}
 .sv-nav a.is-current{background:#1d3557;color:#fff!important;border-color:#1d3557}
@@ -737,10 +746,11 @@ if os.path.isfile(os.path.join(assets, "hero-bg.mp4")):
         vid = (f'<video class="hero-bg" autoplay muted loop playsinline preload="auto" poster="{P}/wp-content/uploads/hero-poster.jpg" aria-hidden="true">'
                f'<source src="{P}/wp-content/uploads/hero-bg.mp4" type="video/mp4"></video><div class="hero-shade" aria-hidden="true"></div>')
         h = re.sub(r'(<section class="main _main"\s*>)', r"\1" + vid, h, count=1)
-        css = ('<style>.main._main{position:relative}.main._main .hero-bg,.main._main .hero-shade{position:absolute;inset:0;width:100%;height:100%;'
-               'border-radius:inherit;z-index:0;pointer-events:none}.main._main .hero-bg{object-fit:cover}'
+        # isolation + z-index:-1: видео рисуется поверх фоновой картинки секции, но под всем содержимым,
+        # не меняя позиционирование шапки и мобильного меню
+        css = ('<style>.main._main{position:relative;isolation:isolate}.main._main .hero-bg,.main._main .hero-shade{position:absolute;top:0;left:0;'
+               'width:100%;height:100%;border-radius:inherit;z-index:-1;pointer-events:none}.main._main .hero-bg{object-fit:cover}'
                '.main._main .hero-shade{background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.15) 45%,rgba(0,0,0,.35))}'
-               '.main._main>*:not(.hero-bg):not(.hero-shade){position:relative;z-index:1}'
                '@media (prefers-reduced-motion:reduce){.main._main .hero-bg{display:none}}</style>')
         h = h.replace("</head>", css + "</head>", 1)
         open(hp, "w", encoding="utf-8").write(h)
@@ -754,6 +764,25 @@ if os.path.isdir(ocr):
         if f.endswith(".pdf"):
             shutil.copy(os.path.join(ocr, f), os.path.join(SITE, "wp-content", "uploads", "2023", "11", f))
             n_ocr += 1
+
+# 8) файлы, которые архив отдал сжатыми gzip (шрифты, иконки) — распаковать, иначе браузер их не читает
+import gzip  # noqa: E402
+n_gz = 0
+for dp, _, fns in os.walk(SITE):
+    for n in fns:
+        if n.endswith((".gz", ".tgz", ".zip")):
+            continue
+        p = os.path.join(dp, n)
+        with open(p, "rb") as f:
+            head = f.read(2)
+        if head == b"\x1f\x8b":
+            try:
+                data = gzip.decompress(open(p, "rb").read())
+            except OSError:
+                continue
+            open(p, "wb").write(data)
+            n_gz += 1
+print("gzip-files unpacked:", n_gz)
 
 print(f"sveden pages: {len(SUBS) + 1}; redirects: {len(OLD)}; legacy pages removed: {removed}; pages updated: {changed}; ocr files: {n_ocr}")
 print(f"todo marks: {stats['todo']}; draft marks: {stats['draft']}; missing files: {len(stats['missing'])}")
