@@ -3,7 +3,7 @@ name: Redeploy built preview
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/redeploy.yml", "fix_names.py", "patch_site.py"]
+    paths: [".github/workflows/redeploy.yml", "fix_names.py", "patch_site.py", "sveden_build.py", "check_markup.py", "data/**", "assets/**", "ocr/**"]
   workflow_dispatch:
 
 permissions:
@@ -33,6 +33,9 @@ jobs:
           mkdir site && tar -xf art/artifact.tar -C site
           echo "files: $(find site -type f | wc -l)  size: $(du -sh site | cut -f1)"
           python3 patch_site.py site
+          pip install --quiet beautifulsoup4 lxml
+          python3 sveden_build.py site
+          python3 check_markup.py site || true
           python3 fix_names.py site
           echo "files after: $(find site -type f | wc -l)  size: $(du -sh site | cut -f1)"
       - uses: actions/upload-pages-artifact@v3
