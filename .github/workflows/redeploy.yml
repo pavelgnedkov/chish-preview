@@ -3,7 +3,7 @@ name: Redeploy built preview
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/redeploy.yml", "fix_names.py", "patch_site.py", "sveden_build.py", "check_markup.py", "data/**", "assets/**", "ocr/**"]
+    paths: [".github/workflows/redeploy.yml", "fix_names.py", "patch_site.py", "sveden_build.py", "check_markup.py", "make_prod.py", "data/**", "assets/**", "ocr/**"]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,16 @@ jobs:
           python3 check_markup.py site || true
           python3 fix_names.py site
           echo "files after: $(find site -type f | wc -l)  size: $(du -sh site | cut -f1)"
+      - name: Production package for chish.ru
+        run: |
+          python3 make_prod.py site prod
+          echo "prod size: $(du -sh prod | cut -f1)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chish-ru-prod
+          path: prod
+          include-hidden-files: true
+          retention-days: 30
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
