@@ -39,11 +39,11 @@ OLD = {
     "vakantnye-mesta-dlya-priema-perevoda": "vacant", "stipendii-i-inye-vidy-materialnoj-podderzhki": "grants",
     "o-shkole/mezhdunarodnoe-sotrudnichestvo": "inter", "menyu": "catering",
 }
-rules = "\n".join(f"RewriteRule ^{re.escape(o)}/?$ /sveden/{s}/ [R=301,L]" for o, s in OLD.items())
+rules = "\n".join(f"RewriteRule ^{re.escape(o)}/?$ https://chish.ru/sveden/{s}/ [R=301,L]" for o, s in OLD.items())
 open(os.path.join(DST, ".htaccess"), "w").write(
     "AddDefaultCharset UTF-8\nDirectoryIndex index.html\nErrorDocument 404 /404.html\n"
     "RewriteEngine On\n"
-    "RewriteCond %{HTTPS} off\nRewriteRule ^(.*)$ https://chish.ru/$1 [R=301,L]\n"
+    "RewriteCond %{HTTP:X-Forwarded-Proto} !=https\nRewriteRule ^(.*)$ https://chish.ru/$1 [R=301,L]\n"
     "RewriteCond %{HTTP_HOST} ^www\\.chish\\.ru$ [NC]\nRewriteRule ^(.*)$ https://chish.ru/$1 [R=301,L]\n"
     + rules + "\n")
 print("prod files changed:", n)
